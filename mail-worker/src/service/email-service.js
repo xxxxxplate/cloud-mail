@@ -8,7 +8,6 @@ import accountService from './account-service';
 import BizError from '../error/biz-error';
 import emailUtils from '../utils/email-utils';
 import fileUtils from '../utils/file-utils';
-import { Resend } from 'resend';
 import attService from './att-service';
 import { parseHTML } from 'linkedom';
 import userService from './user-service';
@@ -412,26 +411,44 @@ const emailService = {
 	},
 
 	async sendByResend(resendToken, params) {
-		const resend = new Resend(resendToken);
+    const toList = params.receiveEmail.map(e => ({ email: e }));
 
-		const sendForm = {
-			from: `${params.name} <${params.accountEmail}>`,
-			to: [...params.receiveEmail],
-			subject: params.subject,
-			text: params.text,
-			html: params.html,
-			attachments: await this.toResendAttachments(params.attachments)
-		};
+    const body = {
+        sender: { email: params.accountEmail, name: params.name },
+        to: toList,
+        subject: params.subject,
+        htmlContent: params.html,
+        textContent: params.text,
+    };
 
-		if (params.sendType === 'reply') {
-			sendForm.headers = {
-				'in-reply-to': params.messageId,
-				'references': params.messageId
-			};
-		}
+    if (params.sendType === 'reply' && params.messageId) {
+        body.headers = {
+            'in-reply-to': params.messageId,
+            'references': params.messageId
+        };
+    }
 
-		return await resend.emails.send(sendForm);
-	},
+    const attachments = await this.toResendAttachments(params.attachments);
+    if (attachments.length > 0) {
+        body.attachment = attachments.map(att => ({
+            name: att.filename,
+            content: att.content,
+        }));
+    }
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+            'api-key': resendToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+
+    const json = await res.json();
+    if (!res.ok) return { data: null, error: { message: json.message } };
+    return { data: { id: json.messageId }, error: null };
+},
 
 	async toCloudflareAttachments(attachments) {
 		const arrayBufferAttachments = await this.toArrayBufferAttachments(attachments);
