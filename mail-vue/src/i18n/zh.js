@@ -175,7 +175,7 @@ const zh = {
     autoRefresh: '自动刷新',
     autoRefreshDesc: '轮询请求服务器获取最新邮件',
     sendEmail: '邮件发送',
-    resendToken: 'Resend Token',
+    resendToken: 'Brevo Token',
     cloudflareEmailSending: 'Cloudflare 邮件发送',
     blackList: '邮件黑名单',
     autoClean: '自动清理',
